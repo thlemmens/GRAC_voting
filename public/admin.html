@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facilitator Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { background: #e8edf2; }
+    .admin-topbar {
+      background: #1a202c;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .admin-topbar h1 { font-size: 1.1rem; font-weight: 700; }
+    .admin-topbar .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .stats-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 18px;
+      flex: 1;
+      min-width: 100px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .stat-box .stat-val { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-box .stat-lbl { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    .group-input-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    @media(max-width:500px) { .group-input-row { grid-template-columns: 1fr; } }
+
+    .group-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .alloc-group {
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 5px solid;
+    }
+    .alloc-group-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 6px;
+    }
+    .alloc-members {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .member-chip {
+      background: rgba(0,0,0,0.07);
+      border-radius: 99px;
+      padding: 3px 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s;
+    }
+    .tab-btn.active { color: var(--c1); border-bottom-color: var(--c1); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    #qr-img { display: block; margin: 0 auto; max-width: 220px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="admin-topbar">
+  <div>
+    <h1>🗳️ Group Allocator — Facilitator Dashboard</h1>
+    <div id="phase-label" style="font-size:0.8rem; opacity:0.7; margin-top:2px;">Phase: setup</div>
+  </div>
+  <div class="controls">
+    <button class="btn btn-success btn-sm" id="btn-open"    onclick="adminAction('open')">▶ Open Voting</button>
+    <button class="btn btn-warning btn-sm" id="btn-close"   onclick="adminAction('close')" style="display:none">⏹ Close Voting</button>
+    <button class="btn btn-primary btn-sm" id="btn-allocate" onclick="adminAction('allocate')" style="display:none">⚡ Run Allocation</button>
+    <button class="btn btn-purple btn-sm" id="btn-ideas"   onclick="adminAction('ideas')" style="display:none">💡 Open Ideas</button>
+    <button class="btn btn-outline btn-sm" style="color:#fff;border-color:#fff" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-danger btn-sm" onclick="confirmReset()">↺ Reset</button>
+  </div>
+</div>
+
+<div class="page-wide">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-val" id="stat-participants">0</div>
+      <div class="stat-lbl">Participants</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-voted">0</div>
+      <div class="stat-lbl">Voted</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-ideas">0</div>
+      <div class="stat-lbl">Ideas</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('setup')">⚙️ Setup</button>
+    <button class="tab-btn" onclick="switchTab('participants')">👥 Participants</button>
+    <button class="tab-btn" onclick="switchTab('results')">📊 Results</button>
+    <button class="tab-btn" onclick="switchTab('ideas-tab')">💡 Ideas</button>
+    <button class="tab-btn" onclick="switchTab('qr')">📱 QR Code</button>
+  </div>
+
+  <!-- ── Tab: Setup ──────────────────────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-setup">
+    <div class="card">
+      <div class="admin-section-title">Configure 5 Group Topics</div>
+      <p class="text-muted mb-8" style="font-size:0.85rem;">Enter a short title and optional description for each group. Save before opening voting.</p>
+      <div id="group-inputs">
+        <!-- injected by JS -->
+      </div>
+      <button class="btn btn-primary btn-sm mt-16" onclick="saveGroups()">💾 Save Groups</button>
+    </div>
+  </div>
+
+  <!-- ── Tab: Participants ───────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-participants">
+    <div class="card">
+      <div class="admin-section-title">Registered Participants</div>
+      <div id="participant-list">
+        <p class="text-muted" style="font-size:0.85rem;">No participants yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Results ───────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-results">
+    <div id="results-placeholder" class="card text-center">
+      <p class="text-muted">Run allocation to see group results here.</p>
+    </div>
+    <div id="allocation-results" style="display:none"></div>
+  </div>
+
+  <!-- ── Tab: Ideas ─────────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-ideas-tab">
+    <div id="ideas-placeholder" class="card text-center">
+      <p class="text-muted">Ideas will appear here once the ideas phase is open.</p>
+    </div>
+    <div id="ideas-container" style="display:none"></div>
+  </div>
+
+  <!-- ── Tab: QR Code ───────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-qr">
+    <div class="card text-center">
+      <div class="admin-section-title">Participant Join Link</div>
+      <p class="text-muted mb-8" style="font-size:0.85rem;">Share this QR code or URL on your screen for participants to scan.</p>
+
+      <!-- Network interface picker -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.8rem;font-weight:600;color:var(--muted);">Network Interface</label>
+        <select id="ip-select" style="display:block;margin:6px auto;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;min-width:260px;text-align:center;">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <img id="qr-img" src="" alt="QR Code" style="display:none;" />
+      <p id="qr-loading" class="text-muted">Loading QR code…</p>
+      <p id="qr-error" class="text-muted" style="display:none;color:#e53e3e;"></p>
+      <p class="mt-16" style="font-size:0.9rem; font-weight:600;" id="qr-url"></p>
+    </div>
+
+    <div class="card" style="text-align:left;margin-top:12px;">
+      <div class="admin-section-title">⚠️ Can't connect?</div>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
+        If phones can't reach the server, your firewall or corporate WiFi may be blocking connections. Try this:
+      </p>
+      <ol style="font-size:0.85rem;color:var(--muted);padding-left:20px;line-height:1.6;">
+        <li><strong>Windows Mobile Hotspot:</strong> Open <em>Settings → Network → Mobile Hotspot</em>, turn it on, then have participants connect to your hotspot WiFi. Select the hotspot IP above.</li>
+        <li><strong>Ask IT</strong> to temporarily allow inbound TCP on port 3000 for your laptop.</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- QR loader runs independently of Socket.IO -->
+  <script>
+    (function() {
+      function loadQR(ip) {
+        var qs = ip ? '?ip=' + encodeURIComponent(ip) : '';
+        document.getElementById('qr-loading').style.display = '';
+        document.getElementById('qr-img').style.display = 'none';
+        document.getElementById('qr-error').style.display = 'none';
+
+        fetch('/api/admin/qr' + qs)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            document.getElementById('qr-img').src = data.dataUrl;
+            document.getElementById('qr-img').style.display = 'block';
+            document.getElementById('qr-loading').style.display = 'none';
+            document.getElementById('qr-url').textContent = data.url;
+
+            // Populate the IP dropdown (only on first load)
+            var sel = document.getElementById('ip-select');
+            if (sel.options.length <= 1 && data.interfaces) {
+              sel.innerHTML = '';
+              data.interfaces.forEach(function(iface) {
+                var opt = document.createElement('option');
+                opt.value = iface.ip;
+                opt.textContent = iface.ip + '  (' + iface.name + ')';
+                if (data.url.indexOf(iface.ip) !== -1) opt.selected = true;
+                sel.appendChild(opt);
+              });
+            }
+          })
+          .catch(function(err) {
+            document.getElementById('qr-loading').style.display = 'none';
+            document.getElementById('qr-error').style.display = '';
+            document.getElementById('qr-error').textContent = 'Failed to load QR code: ' + err.message;
+          });
+      }
+
+      // Initial load
+      loadQR('');
+
+      // Re-generate QR when the user picks a different interface
+      document.getElementById('ip-select').addEventListener('change', function() {
+        loadQR(this.value);
+      });
+    })();
+  </script>
+
+  <!-- Build group inputs immediately (before socket scripts) -->
+  <script>
+    var GROUP_COLORS = ['#4F86C6', '#E07B54', '#57A773', '#9B5DE5', '#F4C430'];
+    var GROUP_EMOJIS = ['💡', '🚀', '🌱', '🔬', '🎨'];
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function buildGroupInputs(groups) {
+      var container = document.getElementById('group-inputs');
+      container.innerHTML = '';
+      for (var i = 0; i < 5; i++) {
+        var g = (groups && groups[i]) || {};
+        var color = GROUP_COLORS[i];
+        container.innerHTML += '<div class="group-input-row">'
+          + '<div>'
+          + '<label style="font-size:0.8rem;font-weight:700;color:' + color + '">'
+          + '<span class="group-dot" style="background:' + color + '"></span>Group ' + (i + 1) + ' Title'
+          + '</label>'
+          + '<input type="text" id="g-title-' + i + '" value="' + escHtml(g.title || '') + '" placeholder="Topic title" maxlength="100"'
+          + ' style="border-radius:8px;padding:9px 12px;border:2px solid #e2e8f0;width:100%;font-size:0.9rem;" />'
+          + '</div>'
+          + '<div>'
+          + '<label style="font-size:0.8rem;font-weight:700;color:var(--muted)">Description (optional)</label>'
+          + '<input type="text" id="g-desc-' + i + '" value="' + escHtml(g.description || '') + '" placeholder="Short description shown to voters" maxlength="200"'
+          + ' style="border-radius:8px;padding:9px 12px;border:2px solid #e2e8f0;width:100%;font-size:0.9rem;" />'
+          + '</div>'
+          + '<input type="hidden" id="g-id-' + i + '" value="' + (g.id || '') + '" />'
+          + '</div>';
+      }
+    }
+
+    // Render empty inputs immediately so the Setup tab is never blank
+    buildGroupInputs([]);
+
+    // Also fetch server state right away (works even if socket fails)
+    fetch('/api/admin/state').then(function(r) { return r.json(); }).then(function(data) {
+      if (data && data.groups && data.groups.length) buildGroupInputs(data.groups);
+    }).catch(function() {});
+  </script>
+
+</div><!-- /page-wide -->
+
+<div id="toast"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="socket-client.js"></script>
+<script>
+  // GROUP_COLORS, GROUP_EMOJIS, escHtml, buildGroupInputs defined in earlier script block
+
+  let currentState = null;
+
+  // ── Socket ──────────────────────────────────────────────────────────────────
+  socket.emit('join-admin');
+
+  socket.on('admin-state', data => {
+    currentState = data;
+    applyAdminState(data);
+  });
+  socket.on('public-state', () => {
+    // refresh admin state from server
+    fetch('/api/admin/state').then(r => r.json()).then(applyAdminState);
+  });
+
+  // ── Apply admin state ───────────────────────────────────────────────────────
+  function applyAdminState(data) {
+    currentState = data;
+    const { phase, groups, participants, allocations, ideas } = data;
+
+    // Phase label + button visibility
+    document.getElementById('phase-label').textContent = 'Phase: ' + phase;
+    document.getElementById('btn-open').style.display     = (phase === 'setup') ? '' : 'none';
+    document.getElementById('btn-close').style.display    = (phase === 'voting') ? '' : 'none';
+    document.getElementById('btn-allocate').style.display = (phase === 'closed') ? '' : 'none';
+    document.getElementById('btn-ideas').style.display    = (phase === 'allocated') ? '' : 'none';
+
+    // Stats
+    const totalIdeas = Object.values(ideas || {}).reduce((acc, arr) => acc + arr.length, 0);
+    document.getElementById('stat-participants').textContent = participants.length;
+    document.getElementById('stat-voted').textContent = participants.filter(p => p.voted).length;
+    document.getElementById('stat-ideas').textContent = totalIdeas;
+
+    // Group inputs (only prefill if not already filled)
+    const titles = Array.from({length:5}, (_, i) => document.getElementById('g-title-' + i)?.value);
+    const hasContent = titles.some(t => t && t.trim());
+    if (!hasContent && groups && groups.length) buildGroupInputs(groups);
+
+    // Participant list
+    renderParticipants(participants, groups, allocations);
+
+    // Results
+    if (phase === 'allocated' || phase === 'ideas') {
+      renderResults(groups, allocations, participants);
+    }
+
+    // Ideas
+    if (phase === 'ideas') {
+      renderIdeas(groups, ideas);
+    }
+  }
+
+  function renderParticipants(participants, groups, allocations) {
+    const list = document.getElementById('participant-list');
+    if (!participants.length) {
+      list.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">No participants yet.</p>';
+      return;
+    }
+    list.innerHTML = participants.map(p => {
+      const g = p.allocatedGroup ? (groups || []).find(x => x.id === p.allocatedGroup) : null;
+      return `
+        <div class="participant-row">
+          <span class="participant-name">${escHtml(p.name)}</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${g ? `<span class="badge" style="background:${g.color}22;color:${g.color}">${escHtml(g.title)}</span>` : ''}
+            <span class="badge ${p.voted ? 'badge-voted' : 'badge-pending'}">${p.voted ? 'Voted ✓' : 'Pending'}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderResults(groups, allocations, participants) {
+    if (!allocations || !Object.keys(allocations).length) return;
+    const ph = document.getElementById('results-placeholder');
+    const box = document.getElementById('allocation-results');
+    ph.style.display = 'none';
+    box.style.display = '';
+    box.innerHTML = (groups || []).map((g, i) => {
+      const members = (allocations[g.id] || []).map(pid => {
+        const p = participants.find(x => x.id === pid);
+        return p ? `<span class="member-chip">${escHtml(p.name)}</span>` : '';
+      }).join('');
+      return `
+        <div class="alloc-group" style="border-left-color:${g.color};background:${g.color}11;">
+          <div class="alloc-group-title">
+            ${GROUP_EMOJIS[i]} ${escHtml(g.title)}
+            <span style="font-weight:400;color:var(--muted);font-size:0.85rem;margin-left:6px;">(${(allocations[g.id]||[]).length} members)</span>
+          </div>
+          <div class="alloc-members">${members || '<span style="font-size:0.8rem;color:var(--muted)">No members</span>'}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderIdeas(groups, ideas) {
+    if (!ideas) return;
+    const hasAny = Object.values(ideas).some(a => a.length > 0);
+    const ph = document.getElementById('ideas-placeholder');
+    const box = document.getElementById('ideas-container');
+    if (!hasAny) { ph.style.display = ''; box.style.display = 'none'; return; }
+    ph.style.display = 'none';
+    box.style.display = '';
+    box.innerHTML = (groups || []).map((g, i) => {
+      const groupIdeas = ideas[g.id] || [];
+      if (!groupIdeas.length) return '';
+      return `
+        <div class="card mb-16" style="border-top:4px solid ${g.color};">
+          <div class="admin-section-title">${GROUP_EMOJIS[i]} ${escHtml(g.title)}</div>
+          ${groupIdeas.map(idea => `
+            <div class="idea-item">
+              <div class="idea-author">${escHtml(idea.participantName)} · ${new Date(idea.submittedAt).toLocaleTimeString()}</div>
+              ${escHtml(idea.text)}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Tab switching ───────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ── Admin actions ───────────────────────────────────────────────────────────
+  async function adminAction(action) {
+    try {
+      const res = await fetch('/api/admin/' + action, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { showToast('Error: ' + (data.error || 'Unknown error')); return; }
+      if (action === 'allocate') {
+        showToast('Groups allocated! ✓');
+        // Switch to results tab
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('tab-results').classList.add('active');
+        document.querySelector('[onclick="switchTab(\'results\')"]').classList.add('active');
+      }
+    } catch (err) {
+      showToast('Connection error');
+    }
+  }
+
+  async function saveGroups() {
+    const groups = [];
+    for (let i = 0; i < 5; i++) {
+      const title = document.getElementById('g-title-' + i).value.trim();
+      const desc  = document.getElementById('g-desc-' + i).value.trim();
+      const id    = document.getElementById('g-id-' + i).value;
+      if (!title) { showToast(`Group ${i+1} needs a title`); return; }
+      groups.push({ id: id || undefined, title, description: desc });
+    }
+    try {
+      const res = await fetch('/api/admin/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groups }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast('Error: ' + (data.error || 'Unknown')); return; }
+      showToast('Groups saved ✓');
+      // Update hidden IDs
+      data.groups.forEach((g, i) => {
+        const el = document.getElementById('g-id-' + i);
+        if (el) el.value = g.id;
+      });
+    } catch (err) {
+      showToast('Connection error');
+    }
+  }
+
+  function exportCSV() {
+    window.location.href = '/api/admin/export';
+  }
+
+  async function confirmReset() {
+    if (!confirm('Reset the entire session? All votes, participants, and ideas will be cleared.')) return;
+    await fetch('/api/admin/reset', { method: 'POST' });
+    showToast('Session reset ✓');
+    buildGroupInputs([]);
+  }
+
+</script>
+</body>
+</html>

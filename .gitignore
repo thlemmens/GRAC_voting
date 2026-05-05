@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+node_modules/
+package.json
+package-lock.json
+*.js
+!public/*.js
+screenshot.png

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waiting for Results</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page text-center">
+    <div class="app-header">
+      <div class="logo" id="top-emoji">⏳</div>
+      <h1 id="main-heading">Waiting for allocation…</h1>
+      <p id="sub-text">Your vote has been received. Sit tight!</p>
+    </div>
+
+    <div id="spinner-box" class="card" style="padding:32px 20px;">
+      <div class="spinner" style="margin:0 auto 16px;"></div>
+      <p class="text-muted" id="status-detail">The facilitator will run the group allocation shortly.</p>
+    </div>
+
+    <!-- Hidden until allocated -->
+    <div id="reveal-box" class="card reveal-card" style="display:none">
+      <div class="group-emoji" id="reveal-emoji">🎉</div>
+      <div class="group-name" id="reveal-group-name">Group Name</div>
+      <div class="group-desc" id="reveal-group-desc"></div>
+      <div class="mt-24">
+        <button class="btn btn-success btn-block" id="go-ideas-btn">
+          Continue to Ideas →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket-client.js"></script>
+  <script>
+    const pid = loadLocal('participantId');
+    if (!pid) { window.location.href = '/'; }
+
+    const GROUP_EMOJIS = ['💡', '🚀', '🌱', '🔬', '🎨'];
+
+    function applyPhase(phase, participant, groups) {
+      const spinnerBox = document.getElementById('spinner-box');
+      const revealBox  = document.getElementById('reveal-box');
+      const heading    = document.getElementById('main-heading');
+      const subText    = document.getElementById('sub-text');
+      const statusDetail = document.getElementById('status-detail');
+
+      if (phase === 'voting') {
+        heading.textContent = 'Vote submitted!';
+        subText.textContent = 'Waiting for everyone to finish voting.';
+        statusDetail.textContent = 'The facilitator will close voting and run allocation shortly.';
+        spinnerBox.style.display = '';
+        revealBox.style.display  = 'none';
+      } else if (phase === 'closed') {
+        heading.textContent = 'Voting closed!';
+        subText.textContent = 'Calculating group allocations…';
+        statusDetail.textContent = 'The facilitator is running the allocation algorithm.';
+        spinnerBox.style.display = '';
+        revealBox.style.display  = 'none';
+      } else if ((phase === 'allocated' || phase === 'ideas') && participant && participant.allocatedGroup) {
+        const group = (groups || []).find(g => g.id === participant.allocatedGroup);
+        if (group) {
+          const idx = (groups || []).indexOf(group);
+          showReveal(group, idx);
+        }
+      }
+    }
+
+    function showReveal(group, idx) {
+      document.getElementById('top-emoji').textContent = GROUP_EMOJIS[idx] || '🎉';
+      document.getElementById('main-heading').textContent = "You've been allocated!";
+      document.getElementById('sub-text').textContent = 'Welcome to your group:';
+      document.getElementById('spinner-box').style.display = 'none';
+
+      const box = document.getElementById('reveal-box');
+      box.style.borderTop = `6px solid ${group.color}`;
+      box.style.display = '';
+      document.getElementById('reveal-emoji').textContent = GROUP_EMOJIS[idx] || '🎉';
+      document.getElementById('reveal-group-name').textContent = group.title;
+      document.getElementById('reveal-group-name').style.color = group.color;
+      document.getElementById('reveal-group-desc').textContent = group.description || '';
+    }
+
+    // Real-time state from socket
+    socket.on('public-state', ({ phase, groups }) => {
+      // Need participant details for full state
+      fetch('/api/participant/' + pid)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) { window.location.href = '/'; return; }
+          applyPhase(phase || data.phase, data.participant, data.groups || groups);
+        })
+        .catch(() => {});
+    });
+
+    socket.on('allocated', () => {
+      fetch('/api/participant/' + pid)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          applyPhase(data.phase, data.participant, data.groups);
+        });
+    });
+
+    socket.on('participant-state', data => {
+      applyPhase(data.phase, data.participant, data.groups);
+    });
+
+    document.getElementById('go-ideas-btn').addEventListener('click', () => {
+      window.location.href = '/ideas.html';
+    });
+
+    // Register socket room and load initial state
+    socket.emit('join-participant', { participantId: pid });
+
+    fetch('/api/participant/' + pid)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) { window.location.href = '/'; return; }
+        applyPhase(data.phase, data.participant, data.groups);
+        if (data.phase === 'ideas') window.location.href = '/ideas.html';
+      });
+  </script>
+</body>
+</html>

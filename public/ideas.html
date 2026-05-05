@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit Your Ideas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="app-header">
+      <div class="logo">💡</div>
+      <h1>Share Your Ideas</h1>
+      <p id="group-label">Loading your group…</p>
+    </div>
+
+    <!-- Group banner -->
+    <div id="group-banner" class="card" style="display:none; border-top: 5px solid #ccc">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div id="banner-emoji" style="font-size:2rem;">🎯</div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--muted); font-weight:600; text-transform:uppercase;">Your Group</div>
+          <div id="banner-name" style="font-weight:800; font-size:1.15rem;"></div>
+          <div id="banner-desc" style="font-size:0.85rem; color:var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ideas are closed until phase === 'ideas' -->
+    <div id="waiting-ideas" class="card text-center" style="display:none">
+      <div class="spinner"></div>
+      <p class="text-muted">Waiting for the facilitator to open the ideas phase…</p>
+    </div>
+
+    <!-- Submission form -->
+    <div id="idea-form" class="card" style="display:none">
+      <div class="admin-section-title">Submit an idea or question for your group facilitator</div>
+      <div class="form-group mt-8">
+        <textarea
+          id="idea-input"
+          placeholder="What would you like to explore in this group?"
+          maxlength="1000"
+        ></textarea>
+      </div>
+      <button class="btn btn-purple btn-block" id="submit-idea-btn">Send Idea →</button>
+    </div>
+
+    <!-- My submissions -->
+    <div id="my-ideas-section" style="display:none">
+      <div class="admin-section-title mt-16 mb-8">My submissions</div>
+      <div id="my-ideas-list"></div>
+      <p id="no-ideas-msg" class="text-muted" style="font-size:0.85rem; text-align:center;">No ideas submitted yet.</p>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket-client.js"></script>
+  <script>
+    const GROUP_EMOJIS = ['💡', '🚀', '🌱', '🔬', '🎨'];
+
+    const pid = loadLocal('participantId');
+    if (!pid) { window.location.href = '/'; }
+
+    let myIdeas = [];
+    let myGroup = null;
+
+    function renderGroup(group, idx) {
+      myGroup = group;
+      document.getElementById('group-label').textContent = `You're in: ${group.title}`;
+      const banner = document.getElementById('group-banner');
+      banner.style.display = '';
+      banner.style.borderTopColor = group.color;
+      document.getElementById('banner-emoji').textContent = GROUP_EMOJIS[idx] || '🎯';
+      document.getElementById('banner-name').textContent = group.title;
+      document.getElementById('banner-name').style.color = group.color;
+      document.getElementById('banner-desc').textContent = group.description || '';
+    }
+
+    function renderIdeas(ideas) {
+      myIdeas = ideas || [];
+      const list = document.getElementById('my-ideas-list');
+      const noMsg = document.getElementById('no-ideas-msg');
+      const section = document.getElementById('my-ideas-section');
+      section.style.display = '';
+      if (myIdeas.length === 0) {
+        list.innerHTML = '';
+        noMsg.style.display = '';
+      } else {
+        noMsg.style.display = 'none';
+        list.innerHTML = myIdeas.map(i => `
+          <div class="idea-item">
+            <div class="idea-author">${new Date(i.submittedAt).toLocaleTimeString()}</div>
+            ${escHtml(i.text)}
+          </div>
+        `).join('');
+      }
+    }
+
+    function applyState(data) {
+      if (!data) { window.location.href = '/'; return; }
+      const { phase, participant, allocatedGroupInfo, ideas, groups } = data;
+
+      if (!participant.allocatedGroup || !allocatedGroupInfo) {
+        // Not yet allocated — shouldn't be here
+        window.location.href = '/waiting.html';
+        return;
+      }
+
+      const idx = (groups || []).findIndex(g => g.id === participant.allocatedGroup);
+      renderGroup(allocatedGroupInfo, idx);
+      renderIdeas(ideas);
+
+      if (phase === 'ideas') {
+        document.getElementById('waiting-ideas').style.display = 'none';
+        document.getElementById('idea-form').style.display = '';
+      } else if (phase === 'allocated') {
+        document.getElementById('waiting-ideas').style.display = '';
+        document.getElementById('idea-form').style.display = 'none';
+      }
+    }
+
+    // Socket real-time sync
+    socket.on('public-state', ({ phase }) => {
+      if (phase === 'ideas') {
+        document.getElementById('waiting-ideas').style.display = 'none';
+        document.getElementById('idea-form').style.display = '';
+      }
+    });
+
+    socket.emit('join-participant', { participantId: pid });
+
+    // Load initial state
+    fetch('/api/participant/' + pid)
+      .then(r => r.ok ? r.json() : null)
+      .then(applyState);
+
+    // Submit idea
+    document.getElementById('submit-idea-btn').addEventListener('click', async () => {
+      const text = document.getElementById('idea-input').value.trim();
+      if (!text) { showToast('Please enter an idea first'); return; }
+
+      const btn = document.getElementById('submit-idea-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
+      try {
+        const res = await fetch('/api/idea', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ participantId: pid, text }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error submitting'); btn.disabled = false; btn.textContent = 'Send Idea →'; return; }
+        document.getElementById('idea-input').value = '';
+        showToast('Idea sent! ✓');
+        // Reload ideas
+        fetch('/api/participant/' + pid)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d) renderIdeas(d.ideas); });
+      } catch (err) {
+        showToast('Connection error – please try again');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Idea →';
+      }
+    });
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Session</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="app-header">
+      <div class="logo">🗳️</div>
+      <h1>Group Allocator</h1>
+      <p>Enter your name to join the session</p>
+    </div>
+
+    <div id="waiting-card" class="card text-center" style="display:none">
+      <div class="spinner"></div>
+      <p class="text-muted">Waiting for the facilitator to open voting…</p>
+    </div>
+
+    <div id="register-card" class="card" style="display:none">
+      <div class="form-group">
+        <label for="name-input">Your name</label>
+        <input
+          id="name-input"
+          type="text"
+          placeholder="e.g. Jane Smith"
+          maxlength="80"
+          autocomplete="name"
+          autocapitalize="words"
+          autofocus
+        />
+      </div>
+      <button class="btn btn-primary btn-block" id="join-btn">Join Session →</button>
+    </div>
+
+    <p class="text-center text-muted mt-16" style="font-size:0.8rem">
+      You only need to enter your name once.<br>
+      Don't close this tab until the session is complete.
+    </p>
+  </div>
+
+  <div id="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket-client.js"></script>
+  <script>
+    // Redirect if already registered
+    const pid = loadLocal('participantId');
+    if (pid) {
+      // Verify they still exist on the server
+      fetch('/api/participant/' + pid)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) { localStorage.clear(); location.reload(); return; }
+          redirectByPhase(data.phase, data.participant);
+        })
+        .catch(() => {});
+    }
+
+    // Listen for phase changes
+    socket.on('public-state', ({ phase }) => {
+      const waiting = document.getElementById('waiting-card');
+      const reg = document.getElementById('register-card');
+      if (phase === 'setup') {
+        waiting.style.display = '';
+        reg.style.display = 'none';
+      } else {
+        waiting.style.display = 'none';
+        reg.style.display = '';
+      }
+    });
+
+    // Also listen for allocation events (if sitting on this page after voting)
+    socket.on('allocated', () => {
+      const pid = loadLocal('participantId');
+      if (pid) window.location.href = '/waiting.html';
+    });
+
+    document.getElementById('join-btn').addEventListener('click', register);
+    document.getElementById('name-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') register();
+    });
+
+    async function register() {
+      const name = document.getElementById('name-input').value.trim();
+      if (!name) { showToast('Please enter your name'); return; }
+
+      const btn = document.getElementById('join-btn');
+      btn.disabled = true;
+      btn.textContent = 'Joining…';
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error registering'); btn.disabled = false; btn.textContent = 'Join Session →'; return; }
+        saveLocal('participantId', data.participantId);
+        saveLocal('participantName', name);
+        window.location.href = '/vote.html';
+      } catch (err) {
+        showToast('Connection error – please try again');
+        btn.disabled = false;
+        btn.textContent = 'Join Session →';
+      }
+    }
+
+    function redirectByPhase(phase, participant) {
+      if (phase === 'setup') return; // stay here
+      if (!participant.voted && (phase === 'voting')) { window.location.href = '/vote.html'; return; }
+      if (participant.voted && phase === 'voting') { window.location.href = '/waiting.html'; return; }
+      if (phase === 'closed' || phase === 'allocated') { window.location.href = '/waiting.html'; return; }
+      if (phase === 'ideas') { window.location.href = '/ideas.html'; return; }
+    }
+  </script>
+</body>
+</html>

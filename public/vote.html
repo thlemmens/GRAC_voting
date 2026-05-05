@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vote for Your Group</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .rank-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .rank-slot {
+      flex: 1;
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 2px dashed #cbd5e0;
+      color: var(--muted);
+      transition: background 0.2s;
+      min-height: 58px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+    }
+    .rank-slot.filled {
+      border-style: solid;
+      color: #fff;
+    }
+    .rank-slot .slot-label { font-size: 0.7rem; opacity: 0.85; }
+    .rank-slot .slot-name  { font-size: 0.82rem; font-weight: 800; }
+
+    .group-card { padding-left: 24px; }
+    .instructions {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="app-header">
+      <div class="logo">🎯</div>
+      <h1>Pick Your Groups</h1>
+      <p id="welcome-name">Tap to rank your top 3 choices</p>
+    </div>
+
+    <!-- Rank display bar -->
+    <div class="rank-bar">
+      <div class="rank-slot" id="slot-1" data-rank="1">
+        <span class="slot-label">1st Choice</span>
+        <span class="slot-name">—</span>
+      </div>
+      <div class="rank-slot" id="slot-2" data-rank="2">
+        <span class="slot-label">2nd Choice</span>
+        <span class="slot-name">—</span>
+      </div>
+      <div class="rank-slot" id="slot-3" data-rank="3">
+        <span class="slot-label">3rd Choice</span>
+        <span class="slot-name">—</span>
+      </div>
+    </div>
+
+    <p class="instructions">Tap a group to assign it to your next available rank. Tap again to remove.</p>
+
+    <div id="groups-container">
+      <!-- Group cards injected here -->
+    </div>
+
+    <button class="btn btn-primary btn-block mt-16" id="submit-btn" disabled>
+      Submit My Choices →
+    </button>
+  </div>
+
+  <div id="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket-client.js"></script>
+  <script>
+    const RANK_LABELS = ['1st', '2nd', '3rd'];
+    const RANK_COLORS = ['#4F86C6', '#E07B54', '#57A773'];
+
+    const pid = loadLocal('participantId');
+    if (!pid) { window.location.href = '/'; }
+
+    const name = loadLocal('participantName') || '';
+    if (name) document.getElementById('welcome-name').textContent = `Hi ${name}! Tap to rank your top 3 choices.`;
+
+    // selections[0] = groupId of 1st choice, [1] = 2nd, [2] = 3rd
+    let selections = [null, null, null];
+    let groups = [];
+
+    // Listen for phase changes — redirect if voting closed
+    socket.on('public-state', ({ phase, groups: g }) => {
+      if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
+        window.location.href = '/waiting.html';
+        return;
+      }
+      if (g && g.length) {
+        groups = g;
+        renderGroups();
+      }
+    });
+
+    // Load initial state
+    fetch('/api/state')
+      .then(r => r.json())
+      .then(({ phase, groups: g }) => {
+        if (phase === 'setup') { window.location.href = '/'; return; }
+        if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
+          window.location.href = '/waiting.html'; return;
+        }
+        groups = g || [];
+        renderGroups();
+      });
+
+    function renderGroups() {
+      const container = document.getElementById('groups-container');
+      container.innerHTML = '';
+      groups.forEach(group => {
+        const card = document.createElement('div');
+        card.className = 'group-card';
+        card.dataset.id = group.id;
+        card.style.borderLeftColor = group.color;
+        card.innerHTML = `
+          <div class="group-accent" style="background:${group.color}"></div>
+          <div class="group-title">${escHtml(group.title)}</div>
+          ${group.description ? `<div class="group-description">${escHtml(group.description)}</div>` : ''}
+          <div class="rank-badge" style="display:none"></div>
+        `;
+        card.addEventListener('click', () => toggleSelection(group.id));
+        container.appendChild(card);
+      });
+      updateUI();
+    }
+
+    function toggleSelection(groupId) {
+      const existingRank = selections.indexOf(groupId);
+      if (existingRank !== -1) {
+        // Remove it and shift others left
+        selections.splice(existingRank, 1);
+        selections.push(null);
+      } else {
+        // Add to next available slot
+        const next = selections.indexOf(null);
+        if (next !== -1) selections[next] = groupId;
+      }
+      updateUI();
+    }
+
+    function updateUI() {
+      // Update rank bar slots
+      for (let i = 0; i < 3; i++) {
+        const slot = document.getElementById(`slot-${i + 1}`);
+        const nameEl = slot.querySelector('.slot-name');
+        const gid = selections[i];
+        if (gid) {
+          const g = groups.find(x => x.id === gid);
+          nameEl.textContent = g ? g.title : '—';
+          slot.classList.add('filled');
+          slot.style.background = RANK_COLORS[i];
+          slot.style.borderColor = RANK_COLORS[i];
+        } else {
+          nameEl.textContent = '—';
+          slot.classList.remove('filled');
+          slot.style.background = '';
+          slot.style.borderColor = '';
+        }
+      }
+
+      // Update group cards
+      document.querySelectorAll('.group-card').forEach(card => {
+        const gid = card.dataset.id;
+        const rank = selections.indexOf(gid);
+        const badge = card.querySelector('.rank-badge');
+        if (rank !== -1) {
+          card.classList.add('selected');
+          card.style.borderColor = RANK_COLORS[rank];
+          badge.style.display = 'flex';
+          badge.style.background = RANK_COLORS[rank];
+          badge.textContent = rank + 1;
+        } else {
+          card.classList.remove('selected');
+          card.style.borderColor = 'transparent';
+          badge.style.display = 'none';
+        }
+      });
+
+      document.getElementById('submit-btn').disabled = selections.includes(null);
+    }
+
+    document.getElementById('submit-btn').addEventListener('click', async () => {
+      const [first, second, third] = selections;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await fetch('/api/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ participantId: pid, first, second, third }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error submitting'); btn.disabled = false; btn.textContent = 'Submit My Choices →'; return; }
+        window.location.href = '/waiting.html';
+      } catch (err) {
+        showToast('Connection error – please try again');
+        btn.disabled = false;
+        btn.textContent = 'Submit My Choices →';
+      }
+    });
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
