@@ -319,17 +319,21 @@
 
   let currentState = null;
 
-  // ── Socket ──────────────────────────────────────────────────────────────────
-  socket.emit('join-admin');
+  // ── Socket (guarded — page works without it via fetch fallback) ─────────────
+  if (socket) {
+    socket.emit('join-admin');
 
-  socket.on('admin-state', data => {
-    currentState = data;
-    applyAdminState(data);
-  });
-  socket.on('public-state', () => {
-    // refresh admin state from server
-    fetch('/api/admin/state').then(r => r.json()).then(applyAdminState);
-  });
+    socket.on('admin-state', data => {
+      currentState = data;
+      applyAdminState(data);
+    });
+    socket.on('public-state', () => {
+      fetch('/api/admin/state').then(r => r.json()).then(applyAdminState);
+    });
+  }
+
+  // Fetch admin state immediately (works even if socket fails)
+  fetch('/api/admin/state').then(r => r.json()).then(applyAdminState).catch(() => {});
 
   // ── Apply admin state ───────────────────────────────────────────────────────
   function applyAdminState(data) {

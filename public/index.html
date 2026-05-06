@@ -42,6 +42,25 @@
   </div>
 
   <div id="toast"></div>
+  <!-- Phase check runs before Socket.IO to avoid blank page if socket fails -->
+  <script>
+    function applyPhaseUI(phase) {
+      var waiting = document.getElementById('waiting-card');
+      var reg = document.getElementById('register-card');
+      if (phase === 'setup') {
+        waiting.style.display = '';
+        reg.style.display = 'none';
+      } else {
+        waiting.style.display = 'none';
+        reg.style.display = '';
+      }
+    }
+    // Immediate fetch so the page is never blank
+    fetch('/api/state')
+      .then(function(r) { return r.json(); })
+      .then(function(data) { applyPhaseUI(data.phase); })
+      .catch(function() { applyPhaseUI('voting'); }); // fallback: show register form
+  </script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="socket-client.js"></script>
   <script>
@@ -58,24 +77,15 @@
         .catch(() => {});
     }
 
-    // Listen for phase changes
-    socket.on('public-state', ({ phase }) => {
-      const waiting = document.getElementById('waiting-card');
-      const reg = document.getElementById('register-card');
-      if (phase === 'setup') {
-        waiting.style.display = '';
-        reg.style.display = 'none';
-      } else {
-        waiting.style.display = 'none';
-        reg.style.display = '';
-      }
-    });
+    // Listen for phase changes (enhances the fetch-based check above)
+    if (typeof socket !== 'undefined') {
+      socket.on('public-state', ({ phase }) => { applyPhaseUI(phase); });
 
-    // Also listen for allocation events (if sitting on this page after voting)
-    socket.on('allocated', () => {
-      const pid = loadLocal('participantId');
-      if (pid) window.location.href = '/waiting.html';
-    });
+      socket.on('allocated', () => {
+        const pid = loadLocal('participantId');
+        if (pid) window.location.href = '/waiting.html';
+      });
+    }
 
     document.getElementById('join-btn').addEventListener('click', register);
     document.getElementById('name-input').addEventListener('keydown', e => {

@@ -121,14 +121,16 @@
     }
 
     // Socket real-time sync
-    socket.on('public-state', ({ phase }) => {
-      if (phase === 'ideas') {
-        document.getElementById('waiting-ideas').style.display = 'none';
-        document.getElementById('idea-form').style.display = '';
-      }
-    });
+    if (typeof socket !== 'undefined') {
+      socket.on('public-state', ({ phase }) => {
+        if (phase === 'ideas') {
+          document.getElementById('waiting-ideas').style.display = 'none';
+          document.getElementById('idea-form').style.display = '';
+        }
+      });
 
-    socket.emit('join-participant', { participantId: pid });
+      socket.emit('join-participant', { participantId: pid });
+    }
 
     // Load initial state
     fetch('/api/participant/' + pid)

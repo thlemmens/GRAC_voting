@@ -1,6 +1,9 @@
 // socket-client.js — shared Socket.io client utilities
-// Flask-SocketIO requires the v4 client served from /socket.io/socket.io.js
-const socket = io({ transports: ['websocket', 'polling'] });
+// Flask-SocketIO serves the client at /socket.io/socket.io.js
+var socket = null;
+if (typeof io !== 'undefined') {
+  socket = io({ transports: ['websocket', 'polling'] });
+}
 
 // ── Toast notification ─────────────────────────────────────────────────────────
 function showToast(msg, duration = 2800) {

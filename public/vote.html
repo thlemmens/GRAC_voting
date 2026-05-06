@@ -97,7 +97,7 @@
     let groups = [];
 
     // Listen for phase changes — redirect if voting closed
-    socket.on('public-state', ({ phase, groups: g }) => {
+    if (typeof socket !== 'undefined') socket.on('public-state', ({ phase, groups: g }) => {
       if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
         window.location.href = '/waiting.html';
         return;
