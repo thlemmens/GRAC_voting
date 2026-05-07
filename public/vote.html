@@ -97,7 +97,7 @@
     let groups = [];
 
     // Listen for phase changes — redirect if voting closed
-    if (typeof socket !== 'undefined') socket.on('public-state', ({ phase, groups: g }) => {
+    if (socket) socket.on('public-state', ({ phase, groups: g }) => {
       if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
         window.location.href = '/waiting.html';
         return;
@@ -119,6 +119,17 @@
         groups = g || [];
         renderGroups();
       });
+
+    // Polling fallback if socket isn't connected
+    if (!socket) {
+      setInterval(() => {
+        fetch('/api/state').then(r => r.json()).then(({ phase }) => {
+          if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
+            window.location.href = '/waiting.html';
+          }
+        }).catch(() => {});
+      }, 5000);
+    }
 
     function renderGroups() {
       const container = document.getElementById('groups-container');

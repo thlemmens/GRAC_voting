@@ -121,7 +121,7 @@
     }
 
     // Socket real-time sync
-    if (typeof socket !== 'undefined') {
+    if (socket) {
       socket.on('public-state', ({ phase }) => {
         if (phase === 'ideas') {
           document.getElementById('waiting-ideas').style.display = 'none';

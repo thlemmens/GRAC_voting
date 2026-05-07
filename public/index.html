@@ -78,7 +78,7 @@
     }
 
     // Listen for phase changes (enhances the fetch-based check above)
-    if (typeof socket !== 'undefined') {
+    if (socket) {
       socket.on('public-state', ({ phase }) => { applyPhaseUI(phase); });
 
       socket.on('allocated', () => {
@@ -116,6 +116,13 @@
         btn.disabled = false;
         btn.textContent = 'Join Session →';
       }
+    }
+
+    // Polling fallback if socket isn't connected (checks every 5s)
+    if (!socket) {
+      setInterval(() => {
+        fetch('/api/state').then(r => r.json()).then(d => applyPhaseUI(d.phase)).catch(() => {});
+      }, 5000);
     }
 
     function redirectByPhase(phase, participant) {

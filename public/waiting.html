@@ -85,7 +85,7 @@
     }
 
     // Real-time state from socket
-    if (typeof socket !== 'undefined') {
+    if (socket) {
       socket.on('public-state', ({ phase, groups }) => {
         fetch('/api/participant/' + pid)
           .then(r => r.ok ? r.json() : null)
@@ -115,6 +115,19 @@
     document.getElementById('go-ideas-btn').addEventListener('click', () => {
       window.location.href = '/ideas.html';
     });
+
+    // Polling fallback if socket isn't connected
+    if (!socket) {
+      setInterval(() => {
+        fetch('/api/participant/' + pid)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data) return;
+            applyPhase(data.phase, data.participant, data.groups);
+            if (data.phase === 'ideas') window.location.href = '/ideas.html';
+          }).catch(() => {});
+      }, 5000);
+    }
 
     fetch('/api/participant/' + pid)
       .then(r => r.ok ? r.json() : null)
