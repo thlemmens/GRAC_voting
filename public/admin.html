@@ -162,7 +162,7 @@
         <button class="btn btn-outline btn-sm" id="btn-add-group" onclick="addGroupRow()">＋ Add Group</button>
         <button class="btn btn-outline btn-sm" id="btn-remove-group" onclick="removeGroupRow()" style="color:#e53e3e;border-color:#e53e3e;">− Remove Group</button>
       </div>
-      <button class="btn btn-primary btn-sm mt-16" onclick="saveGroups()">💾 Save Groups</button>
+      <button class="btn btn-primary btn-sm mt-16" id="btn-save-groups" onclick="saveGroups()">💾 Save Groups</button>
     </div>
   </div>
 
@@ -407,6 +407,15 @@
     document.getElementById('btn-close').style.display    = (phase === 'voting') ? '' : 'none';
     document.getElementById('btn-allocate').style.display = (phase === 'closed') ? '' : 'none';
     document.getElementById('btn-ideas').style.display    = (phase === 'allocated') ? '' : 'none';
+
+    // Disable setup controls once voting has been opened
+    const setupLocked = (phase !== 'setup');
+    document.getElementById('btn-save-groups').disabled = setupLocked;
+    document.getElementById('btn-add-group').disabled = setupLocked;
+    document.getElementById('btn-remove-group').disabled = setupLocked;
+    if (setupLocked) {
+      document.getElementById('btn-save-groups').textContent = '✓ Groups Saved';
+    }
 
     // Stats
     const totalIdeas = Object.values(ideas || {}).reduce((acc, arr) => acc + arr.length, 0);
