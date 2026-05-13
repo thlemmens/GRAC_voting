@@ -350,12 +350,14 @@
       if (rmBtn) rmBtn.disabled = (_groupCount <= MIN_GROUPS);
     }
 
+    var DEFAULT_GROUPS = [
+      { title: 'Yassmine + Thomas', description: 'ReCognition  \u00b7  Machine learning  \u00b7  Data enrichment' },
+      { title: 'Janice', description: 'Analyze Re LRU  \u00b7  Dashboards' },
+      { title: 'Mel + S\u00e9bastien', description: 'Target portfolio  \u00b7  Pricing database' }
+    ];
+
     // Render default inputs immediately so the Setup tab is never blank
-    buildGroupInputs([
-      { title: 'Yassmine + Thomas', description: '' },
-      { title: 'Janice', description: '' },
-      { title: 'Mel + S\u00e9bastien', description: '' }
-    ]);
+    buildGroupInputs(DEFAULT_GROUPS);
 
     // Also fetch server state right away (works even if socket fails)
     fetch('/api/admin/state').then(function(r) { return r.json(); }).then(function(data) {
@@ -573,7 +575,7 @@
     if (!confirm('Reset the entire session? All votes, participants, and ideas will be cleared.')) return;
     await fetch('/api/admin/reset', { method: 'POST' });
     showToast('Session reset ✓');
-    buildGroupInputs([]);
+    buildGroupInputs(DEFAULT_GROUPS);
   }
 
 </script>
