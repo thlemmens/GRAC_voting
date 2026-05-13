@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
-GROUP_COLORS = ['#4F86C6', '#E07B54', '#57A773', '#9B5DE5', '#F4C430']
+GROUP_COLORS = ['#4F86C6', '#E07B54', '#57A773', '#9B5DE5', '#F4C430',
+                '#FF6B6B', '#48DBFB', '#FF9FF3', '#1DD1A1', '#54A0FF']
 
 # ── Shared mutable state ───────────────────────────────────────────────────────
 state = {

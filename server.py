@@ -174,8 +174,8 @@ def get_state():
 def admin_set_groups():
     data = request.get_json(silent=True) or {}
     groups = data.get('groups')
-    if not isinstance(groups, list) or len(groups) != 5:
-        return jsonify({'error': 'Exactly 5 groups required'}), 400
+    if not isinstance(groups, list) or not (2 <= len(groups) <= 10):
+        return jsonify({'error': 'Between 2 and 10 groups required'}), 400
     for g in groups:
         title = (g.get('title') or '').strip()
         if not title:
@@ -193,8 +193,8 @@ def admin_set_groups():
 
 @app.route('/api/admin/open', methods=['POST'])
 def admin_open():
-    if len(store.state['groups']) != 5:
-        return jsonify({'error': 'Configure 5 groups first'}), 400
+    if len(store.state['groups']) < 2:
+        return jsonify({'error': 'Configure at least 2 groups first'}), 400
     store.set_phase('voting')
     broadcast()
     return jsonify({'ok': True})

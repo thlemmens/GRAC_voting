@@ -153,10 +153,14 @@
   <!-- ── Tab: Setup ──────────────────────────────────────────────────────────── -->
   <div class="tab-panel active" id="tab-setup">
     <div class="card">
-      <div class="admin-section-title">Configure 5 Group Topics</div>
+      <div class="admin-section-title">Configure Group Topics</div>
       <p class="text-muted mb-8" style="font-size:0.85rem;">Enter a short title and optional description for each group. Save before opening voting.</p>
       <div id="group-inputs">
         <!-- injected by JS -->
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="btn-add-group" onclick="addGroupRow()">＋ Add Group</button>
+        <button class="btn btn-outline btn-sm" id="btn-remove-group" onclick="removeGroupRow()" style="color:#e53e3e;border-color:#e53e3e;">− Remove Group</button>
       </div>
       <button class="btn btn-primary btn-sm mt-16" onclick="saveGroups()">💾 Save Groups</button>
     </div>
@@ -269,19 +273,23 @@
 
   <!-- Build group inputs immediately (before socket scripts) -->
   <script>
-    var GROUP_COLORS = ['#4F86C6', '#E07B54', '#57A773', '#9B5DE5', '#F4C430'];
-    var GROUP_EMOJIS = ['💡', '🚀', '🌱', '🔬', '🎨'];
+    var GROUP_COLORS = ['#4F86C6', '#E07B54', '#57A773', '#9B5DE5', '#F4C430', '#FF6B6B', '#48DBFB', '#FF9FF3', '#1DD1A1', '#54A0FF'];
+    var GROUP_EMOJIS = ['💡', '🚀', '🌱', '🔬', '🎨', '🔥', '💎', '🌈', '⭐', '🎯'];
+    var MIN_GROUPS = 2;
+    var MAX_GROUPS = 10;
+    var _groupCount = 3;
 
     function escHtml(str) {
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     function buildGroupInputs(groups) {
+      if (groups && groups.length) _groupCount = groups.length;
       var container = document.getElementById('group-inputs');
       container.innerHTML = '';
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < _groupCount; i++) {
         var g = (groups && groups[i]) || {};
-        var color = GROUP_COLORS[i];
+        var color = GROUP_COLORS[i % GROUP_COLORS.length];
         container.innerHTML += '<div class="group-input-row">'
           + '<div>'
           + '<label style="font-size:0.8rem;font-weight:700;color:' + color + '">'
@@ -298,9 +306,48 @@
           + '<input type="hidden" id="g-id-' + i + '" value="' + (g.id || '') + '" />'
           + '</div>';
       }
+      updateGroupButtons();
     }
 
-    // Render empty inputs immediately so the Setup tab is never blank
+    function addGroupRow() {
+      if (_groupCount >= MAX_GROUPS) return;
+      // Preserve current values
+      var current = collectCurrentGroups();
+      _groupCount++;
+      buildGroupInputs(current);
+    }
+
+    function removeGroupRow() {
+      if (_groupCount <= MIN_GROUPS) return;
+      var current = collectCurrentGroups();
+      _groupCount--;
+      current = current.slice(0, _groupCount);
+      buildGroupInputs(current);
+    }
+
+    function collectCurrentGroups() {
+      var result = [];
+      for (var i = 0; i < _groupCount; i++) {
+        var tEl = document.getElementById('g-title-' + i);
+        var dEl = document.getElementById('g-desc-' + i);
+        var idEl = document.getElementById('g-id-' + i);
+        result.push({
+          id: idEl ? idEl.value : '',
+          title: tEl ? tEl.value : '',
+          description: dEl ? dEl.value : ''
+        });
+      }
+      return result;
+    }
+
+    function updateGroupButtons() {
+      var addBtn = document.getElementById('btn-add-group');
+      var rmBtn = document.getElementById('btn-remove-group');
+      if (addBtn) addBtn.disabled = (_groupCount >= MAX_GROUPS);
+      if (rmBtn) rmBtn.disabled = (_groupCount <= MIN_GROUPS);
+    }
+
+    // Render 3 empty inputs immediately so the Setup tab is never blank
     buildGroupInputs([]);
 
     // Also fetch server state right away (works even if socket fails)
@@ -354,7 +401,7 @@
     document.getElementById('stat-ideas').textContent = totalIdeas;
 
     // Group inputs (only prefill if not already filled)
-    const titles = Array.from({length:5}, (_, i) => document.getElementById('g-title-' + i)?.value);
+    const titles = Array.from({length: _groupCount}, (_, i) => document.getElementById('g-title-' + i)?.value);
     const hasContent = titles.some(t => t && t.trim());
     if (!hasContent && groups && groups.length) buildGroupInputs(groups);
 
@@ -469,11 +516,11 @@
 
   async function saveGroups() {
     const groups = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < _groupCount; i++) {
       const title = document.getElementById('g-title-' + i).value.trim();
       const desc  = document.getElementById('g-desc-' + i).value.trim();
       const id    = document.getElementById('g-id-' + i).value;
-      if (!title) { showToast(`Group ${i+1} needs a title`); return; }
+      if (!title) { showToast('Group ' + (i+1) + ' needs a title'); return; }
       groups.push({ id: id || undefined, title, description: desc });
     }
     try {
