@@ -283,8 +283,12 @@
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function buildGroupInputs(groups) {
-      if (groups && groups.length) _groupCount = groups.length;
+    function buildGroupInputs(groups, count) {
+      if (typeof count === 'number') {
+        _groupCount = count;
+      } else if (groups && groups.length) {
+        _groupCount = groups.length;
+      }
       var container = document.getElementById('group-inputs');
       container.innerHTML = '';
       for (var i = 0; i < _groupCount; i++) {
@@ -311,10 +315,9 @@
 
     function addGroupRow() {
       if (_groupCount >= MAX_GROUPS) return;
-      // Preserve current values
       var current = collectCurrentGroups();
       _groupCount++;
-      buildGroupInputs(current);
+      buildGroupInputs(current, _groupCount);
     }
 
     function removeGroupRow() {
@@ -322,7 +325,7 @@
       var current = collectCurrentGroups();
       _groupCount--;
       current = current.slice(0, _groupCount);
-      buildGroupInputs(current);
+      buildGroupInputs(current, _groupCount);
     }
 
     function collectCurrentGroups() {
