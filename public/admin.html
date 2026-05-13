@@ -350,8 +350,12 @@
       if (rmBtn) rmBtn.disabled = (_groupCount <= MIN_GROUPS);
     }
 
-    // Render 3 empty inputs immediately so the Setup tab is never blank
-    buildGroupInputs([]);
+    // Render default inputs immediately so the Setup tab is never blank
+    buildGroupInputs([
+      { title: 'Yassmine + Thomas', description: '' },
+      { title: 'Janice', description: '' },
+      { title: 'Mel + S\u00e9bastien', description: '' }
+    ]);
 
     // Also fetch server state right away (works even if socket fails)
     fetch('/api/admin/state').then(function(r) { return r.json(); }).then(function(data) {
