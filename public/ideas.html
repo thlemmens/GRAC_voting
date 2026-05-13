@@ -137,6 +137,16 @@
       .then(r => r.ok ? r.json() : null)
       .then(applyState);
 
+    // Polling — always active to catch phase changes reliably
+    setInterval(() => {
+      fetch('/api/participant/' + pid)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          applyState(data);
+        }).catch(() => {});
+    }, 5000);
+
     // Submit idea
     document.getElementById('submit-idea-btn').addEventListener('click', async () => {
       const text = document.getElementById('idea-input').value.trim();

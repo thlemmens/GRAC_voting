@@ -116,18 +116,16 @@
       window.location.href = '/ideas.html';
     });
 
-    // Polling fallback if socket isn't connected
-    if (!socket) {
-      setInterval(() => {
-        fetch('/api/participant/' + pid)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (!data) return;
-            applyPhase(data.phase, data.participant, data.groups);
-            if (data.phase === 'ideas') window.location.href = '/ideas.html';
-          }).catch(() => {});
-      }, 5000);
-    }
+    // Polling — always active to catch phase changes reliably
+    setInterval(() => {
+      fetch('/api/participant/' + pid)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          applyPhase(data.phase, data.participant, data.groups);
+          if (data.phase === 'ideas') window.location.href = '/ideas.html';
+        }).catch(() => {});
+    }, 5000);
 
     fetch('/api/participant/' + pid)
       .then(r => r.ok ? r.json() : null)

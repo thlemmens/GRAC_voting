@@ -120,16 +120,14 @@
         renderGroups();
       });
 
-    // Polling fallback if socket isn't connected
-    if (!socket) {
-      setInterval(() => {
-        fetch('/api/state').then(r => r.json()).then(({ phase }) => {
-          if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
-            window.location.href = '/waiting.html';
-          }
-        }).catch(() => {});
-      }, 5000);
-    }
+    // Polling — always active to catch phase changes reliably
+    setInterval(() => {
+      fetch('/api/state').then(r => r.json()).then(({ phase }) => {
+        if (phase === 'closed' || phase === 'allocated' || phase === 'ideas') {
+          window.location.href = '/waiting.html';
+        }
+      }).catch(() => {});
+    }, 5000);
 
     function renderGroups() {
       const container = document.getElementById('groups-container');

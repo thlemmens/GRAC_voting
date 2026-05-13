@@ -118,12 +118,10 @@
       }
     }
 
-    // Polling fallback if socket isn't connected (checks every 5s)
-    if (!socket) {
-      setInterval(() => {
-        fetch('/api/state').then(r => r.json()).then(d => applyPhaseUI(d.phase)).catch(() => {});
-      }, 5000);
-    }
+    // Polling — always active to catch phase changes reliably
+    setInterval(() => {
+      fetch('/api/state').then(r => r.json()).then(d => applyPhaseUI(d.phase)).catch(() => {});
+    }, 5000);
 
     function redirectByPhase(phase, participant) {
       if (phase === 'setup') return; // stay here
