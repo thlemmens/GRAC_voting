@@ -389,6 +389,13 @@
   // Fetch admin state immediately (works even if socket fails)
   fetch('/api/admin/state').then(r => r.json()).then(applyAdminState).catch(() => {});
 
+  // Polling fallback — auto-refresh every 3s if socket isn't connected
+  if (!socket) {
+    setInterval(() => {
+      fetch('/api/admin/state').then(r => r.json()).then(applyAdminState).catch(() => {});
+    }, 3000);
+  }
+
   // ── Apply admin state ───────────────────────────────────────────────────────
   function applyAdminState(data) {
     currentState = data;
